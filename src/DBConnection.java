@@ -12,6 +12,8 @@ public class DBConnection {
 		
 		try {
 			connection = DriverManager.getConnection("jdbc:sqlite:" + SQLFile);
+			
+			System.out.println("Established connection");
 		} catch (SQLException e) {
 			e.printStackTrace();
 		}

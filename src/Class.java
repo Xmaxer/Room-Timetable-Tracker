@@ -18,6 +18,10 @@ public class Class {
 		this.weeks = weeks;
 	}
 
+	public String toString()
+	{
+		return "'" + module + "' is on for '" + classGroups + "' at " + time + " on " + day;
+	}
 	/**
 	 * @return the time
 	 */

@@ -17,6 +17,10 @@ public class Room {
 		parseRoomHeaderData();
 	}
 
+	public String toString()
+	{
+		return "Room number: " + roomNumber + "\nRoom capacity: " + roomCapacity;
+	}
 	private void parseRoomHeaderData() {
 
 		Matcher roomFinder = Pattern.compile("Room: ([^ (]*)([^)]*)").matcher(roomHeaderData);

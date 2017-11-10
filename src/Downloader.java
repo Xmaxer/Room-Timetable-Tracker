@@ -3,8 +3,13 @@ import java.io.IOException;
 import java.sql.Connection;
 import java.sql.SQLException;
 import java.sql.Statement;
+import java.text.ParseException;
+import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Calendar;
+import java.util.Date;
+import java.util.LinkedList;
 import java.util.List;
 
 import org.jsoup.Jsoup;
@@ -14,31 +19,46 @@ import org.jsoup.select.Elements;
 
 public class Downloader {
 
+	//private static Connection connection;
 
 	public static void redownloadData(Connection connection) {
-		
-	
+
+
 		List<Room> rooms = getAllRoomsData();
 
-
-		
-		for(int roomIndex = 0; roomIndex < rooms.size(); roomIndex++)
+		try
 		{
+			Statement statement = connection.createStatement();
+			statement.setQueryTimeout(30);
 
-			String roomNumber = rooms.get(roomIndex).getRoomNumber();
-			int roomCapacity = rooms.get(roomIndex).getRoomCapacity();
+			String classTable = "class";
+			String roomTable = "room";
 
-			String tableName = roomNumber;
+			statement.execute("DROP TABLE IF EXISTS " + roomTable);
+			statement.execute("DROP TABLE IF EXISTS " + classTable);
+			statement.executeUpdate("CREATE TABLE IF NOT EXISTS room" + 
+					"(room_number VARCHAR(20) PRIMARY KEY," + 
+					"capacity int" + 
+					");");
+			statement.executeUpdate("CREATE TABLE IF NOT EXISTS class" + 
+					"(time time NOT NULL," + 
+					"day VARCHAR(10) NOT NULL," + 
+					"module VARCHAR(20) NOT NULL," + 
+					"week_number int NOT NULL," + 
+					"room_number VARCHAR(20) NOT NULL," + 
+					"class_group VARCHAR(255) NOT NULL," + 
+					"PRIMARY KEY (time, day, week_number, class_group, module)," + 
+					"FOREIGN KEY (room_number) REFERENCES room (room_number) ON DELETE RESTRICT ON UPDATE CASCADE" + 
+					");");
 
-
-			try
+			for(int roomIndex = 0; roomIndex < rooms.size(); roomIndex++)
 			{
-				
-				Statement statement = connection.createStatement();
-				statement.setQueryTimeout(30);
 
-				statement.execute("DROP TABLE IF EXISTS " + tableName);
-				statement.executeUpdate("CREATE TABLE IF NOT EXISTS " + tableName + " (ID int IDENTITY(1,1) PRIMARY KEY, time time NOT NULL, day VARCHAR(15) NOT NULL, class_groups VARCHAR(255), module VARCHAR(255), weeks VARCHAR(255), capacity int, UNIQUE(time, day))");
+				String roomNumber = rooms.get(roomIndex).getRoomNumber();
+				int roomCapacity = rooms.get(roomIndex).getRoomCapacity();
+
+				statement.executeUpdate("INSERT INTO " + roomTable + " (room_number, capacity) VALUES (" +
+						"'" + roomNumber + "','" + roomCapacity + "')");
 
 				for(Class currentClass : rooms.get(roomIndex).getClasses())
 				{
@@ -48,27 +68,43 @@ public class Downloader {
 					String module = currentClass.getModule();
 					List<String> weeks = currentClass.getWeeks();
 
-					statement.executeUpdate("INSERT INTO " + tableName + " (time, day, class_groups, module, weeks, capacity) values ('" + time + "','" + day + "','" + ((classGroups != null) ? String.join(",", classGroups) : "") + "','" + module + "','" + ((weeks != null) ? String.join(",", weeks) : "") + "'," + roomCapacity + ")");
+					if(weeks != null)
+					{
+						for(String week : weeks)
+						{
+							for(String classGroup : classGroups)
+							{
+								statement.executeUpdate("INSERT INTO " + classTable + " (time, day, module, week_number, room_number, class_group) values (" + 
+										"'" + time + "'," + 
+										"'" + day + "'," + 
+										"'" + module + "'," + 
+										"'" + week + "'," + 
+										"'" + roomNumber + "'," + 
+										"'" + classGroup + "')");
+							}
+						}
+					}
+				}
 
-				}
-			}catch(Exception e)
-			{
-				try
-				{
-					if(connection != null)
-						connection.close();
-				}
-				catch(SQLException ef)
-				{
-					System.out.println("Error closing connection to database");
-				}
-				e.printStackTrace();
+
 			}
+		}catch(Exception e)
+		{
+			try
+			{
+				if(connection != null)
+					connection.close();
+			}
+			catch(SQLException ef)
+			{
+				System.out.println("Error closing connection to database");
+			}
+			e.printStackTrace();
 		}
-
 	}
 
 	private static List<Room> getAllRoomsData() {
+
 
 		List<Room> rooms = new ArrayList<Room>();
 
@@ -95,10 +131,12 @@ public class Downloader {
 				rooms.add(currentRoom);
 			}
 		}
+
 		return rooms;
 	}
 
 	private static List<Class> getAllClassesForRoom(int j, Elements tables, List<String> days) {
+
 
 		List<Class> classes = new ArrayList<Class>();
 
@@ -111,6 +149,7 @@ public class Downloader {
 	}
 
 	private static List<Class> getAllClassesForAllTimes(int j, Elements tables, List<String> days, int trip) {
+
 
 		List<Class> classes = new ArrayList<Class>();
 
@@ -147,9 +186,49 @@ public class Downloader {
 
 					String[] classGroups = classDataTables.get(0).select("tbody > tr > td").text().split(",");
 					String module = classDataTables.get(1).select("tbody > tr > td").text();
-					String[] weeks = classDataTables.get(2).select("tbody > tr > td").text().split(",");
+					List<String> weeks = new LinkedList<String>(Arrays.asList(classDataTables.get(2).select("tbody > tr > td").text().split(",")));
 
-					classOn = new Class(time, day, Arrays.asList(classGroups), module, Arrays.asList(weeks));
+					String weekFormat = "MMMd";
+
+					for(int x = 0; x < weeks.size(); x++)
+					{
+						weeks.set(x, weeks.get(x).replaceAll("wk", "").replaceAll(" ", ""));
+						
+						SimpleDateFormat df = new SimpleDateFormat(weekFormat);
+						try {
+							String[] possibleWeeks = weeks.get(x).split("-");
+							if(possibleWeeks.length == 2)
+							{
+								Date date1 = df.parse(possibleWeeks[0]);
+								Date date2 = df.parse(possibleWeeks[1]);
+								Calendar cal = Calendar.getInstance();
+								
+								cal.setTime(date1);
+								int week1 = cal.get(Calendar.WEEK_OF_YEAR);	
+								cal.setTime(date2);
+								int week2 = cal.get(Calendar.WEEK_OF_YEAR);
+								
+								weeks.remove(x);
+								while(week1 <= week2)
+								{
+									weeks.add(weeks.size(), String.valueOf(week1));
+									week1++;
+								}
+								break;
+							}
+							else
+							{
+								Date date = df.parse(weeks.get(x));
+								Calendar cal = Calendar.getInstance();
+								cal.setTime(date);
+								weeks.set(x, String.valueOf(cal.get(Calendar.WEEK_OF_YEAR)));
+							}
+
+						} catch (ParseException e) {
+							e.printStackTrace();
+						}
+					}
+					classOn = new Class(time, day, Arrays.asList(classGroups), module, weeks);
 				}
 
 				//System.out.println(time);
@@ -162,11 +241,13 @@ public class Downloader {
 
 	private static Document downloadPage() {
 
+
 		File input = new File("Testing.html");
 
 		Document doc = null;
 		try {
 			doc = Jsoup.parse(input, "UTF-8");
+
 		} catch (IOException e) {
 			e.printStackTrace();
 		}
