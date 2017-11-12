@@ -8,14 +8,16 @@ public class Class {
 	private List<String> classGroups;
 	private String module;
 	private List<String> weeks;
+	private int length;
 	
-	public Class(String time, String day, List<String> classGroups, String module, List<String> weeks)
+	public Class(String time, String day, List<String> classGroups, String module, List<String> weeks, int length)
 	{
 		this.time = time;
 		this.day = day;
 		this.classGroups = classGroups;
 		this.module = module;
 		this.weeks = weeks;
+		this.length = length;
 	}
 
 	public String toString()
@@ -55,6 +57,20 @@ public class Class {
 	 */
 	public List<String> getWeeks() {
 		return weeks;
+	}
+
+	/**
+	 * @return the length
+	 */
+	public int getLength() {
+		return length;
+	}
+
+	/**
+	 * @param length the length to set
+	 */
+	public void setLength(int length) {
+		this.length = length;
 	}
 
 	/**

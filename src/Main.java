@@ -13,18 +13,16 @@ public class Main extends Application{
 
 	public static void main(String[] args) throws IOException {
 
+		DBConnection.createConnection();
 		//launch(args);
-		Connection connection = DBConnection.establishConnectionToDB();;
 		
-		Downloader.redownloadData(connection);
-		
-		System.out.println(getAllRoomNames(connection));
+		//Downloader.redownloadData();
 		
         String sql = "SELECT * FROM room";
         
         try (
-             Statement stmt  = connection.createStatement();
-             ResultSet rs    = stmt.executeQuery(sql)){
+
+             ResultSet rs    = DBConnection.getStatement().executeQuery(sql)){
             
             // loop through the result set
             while (rs.next()) {
@@ -33,7 +31,7 @@ public class Main extends Application{
             }
             
             sql = "SELECT * FROM class";
-            ResultSet rs2 = stmt.executeQuery(sql);
+            ResultSet rs2 = DBConnection.getStatement().executeQuery(sql);
             
             while (rs2.next()) {
             	System.out.println("-----------------------");
@@ -42,49 +40,14 @@ public class Main extends Application{
                 		rs2.getString("module") + "\t" +
                                    rs2.getInt("week_number") + "\t" + 
                                    rs2.getString("room_number") + "\t" + 
-                                   rs2.getString("class_group"));
+                                   rs2.getString("class_group") + "\t" +
+                                   rs2.getInt("length"));
             }
         } catch (SQLException e) {
             System.out.println(e.getMessage());
         }
 		
-		try
-		{
-			if(connection != null)
-				connection.close();
-		}
-		catch(SQLException ef)
-		{
-			System.out.println("Error closing connection to database");
-		}
 
-	}
-
-	private static List<String> getAllRoomNames(Connection connection) {
-		
-		List<String> roomNames = new ArrayList<String>();
-		
-		try {
-			ResultSet rs = connection.getMetaData().getTables(null, null, "%", null);
-
-			while(rs.next())
-			{
-				roomNames.add(rs.getString("TABLE_NAME"));
-			}
-		} catch (SQLException e) {
-			try
-			{
-				if(connection != null)
-					connection.close();
-			}
-			catch(SQLException ef)
-			{
-				System.out.println("Error closing connection to database");
-			}
-			e.printStackTrace();
-		}
-		
-		return roomNames;
 	}
 
 	@Override
