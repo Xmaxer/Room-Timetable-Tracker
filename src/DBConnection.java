@@ -44,7 +44,10 @@ public class DBConnection {
 		try
 		{
 			if(connection != null)
+			{
 				connection.close();
+				System.out.println("Connection to DB closed...");
+			}
 		}
 		catch(SQLException ef)
 		{

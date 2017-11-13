@@ -22,11 +22,11 @@ public class Downloader {
 
 	private static Document roomsPage = downloadPage("room_timetables.html");
 	private static Document timetablesPage = downloadPage("Testing.html");
-	
+
 	public static void redownloadData() {
 
 		createRoomDB();
-		
+
 		List<Room> rooms = getAllRoomsData();
 
 		try
@@ -46,10 +46,11 @@ public class Downloader {
 					"room_number VARCHAR(20) NOT NULL," + 
 					"class_group VARCHAR(255) NOT NULL," + 
 					"length int," + 
-					"PRIMARY KEY (time, day, week_number, class_group, module)," + 
+					"PRIMARY KEY (time, day, week_number, class_group, module, room_number)," + 
 					"FOREIGN KEY (room_number) REFERENCES room (room_number) ON DELETE RESTRICT ON UPDATE CASCADE" + 
 					");");
 
+			String finalInsert = "INSERT INTO " + classTable + " (time, day, module, week_number, room_number, class_group, length) values ";
 			for(int roomIndex = 0; roomIndex < rooms.size(); roomIndex++)
 			{
 
@@ -60,7 +61,7 @@ public class Downloader {
 				PreparedStatement ps = DBConnection.getConnection().prepareStatement("UPDATE " + roomTable + 
 						" SET capacity='" + roomCapacity + "'" + 
 						" WHERE room_number='" + roomNumber + "'");
-				
+
 				ps.executeUpdate();
 
 				for(Class currentClass : rooms.get(roomIndex).getClasses())
@@ -72,32 +73,42 @@ public class Downloader {
 					List<String> weeks = currentClass.getWeeks();
 					int length = currentClass.getLength();
 
-					if(weeks != null)
+					if(weeks != null && classGroups != null)
 					{
 						for(String week : weeks)
 						{
 							for(String classGroup : classGroups)
 							{
-								DBConnection.getStatement().executeUpdate("INSERT INTO " + classTable + " (time, day, module, week_number, room_number, class_group, length) values (" + 
+								finalInsert += "(" + 
 										"'" + time + "'," + 
 										"'" + day + "'," + 
 										"'" + module + "'," + 
 										"'" + week + "'," + 
 										"'" + roomNumber + "'," + 
 										"'" + classGroup + "'," + 
-										"'" + length + "')");
+										"'" + length + "'),";
 							}
 						}
 					}
 				}
-
-
 			}
+
+			System.out.println("Completed building string...");
+			char[] chars = finalInsert.toCharArray();
+
+			chars[finalInsert.length() - 1] = Character.MIN_VALUE;
+
+			finalInsert = new String(chars);
+
+			DBConnection.getStatement().executeUpdate(finalInsert);
+
 		}catch(Exception e)
 		{
 			DBConnection.closeConnection();
 			e.printStackTrace();
 		}
+
+		System.out.println("Finished downloading");
 	}
 
 	private static List<Room> getAllRoomsData() {
@@ -150,7 +161,7 @@ public class Downloader {
 		List<Class> classes = new ArrayList<Class>();
 
 		Elements specificTimeData = tables.get(trip).select("td");
-		
+
 		//This is to remove all junk elements which we don't need.
 		//In this case all 'align' attribute elements are not needed.
 		for(int i = 0; i < specificTimeData.size(); i++)
@@ -164,7 +175,7 @@ public class Downloader {
 		}
 
 		String time = null;
-		
+
 		for(int i = 0; i < specificTimeData.size(); i++)
 		{
 			if(i == 0)
@@ -174,44 +185,46 @@ public class Downloader {
 			else
 			{
 				String day = days.get(i - 1);
-				
+				String[] classGroups = null;
+				String module = null;
+				List<String> weeks = new ArrayList<String>();
+				int length = 0;
 				Class classOn = new Class(time, day, null, null, null, 0);
 
 				if(specificTimeData.get(i).hasAttr("rowspan"))
 				{
 					Elements classDataTables = specificTimeData.get(i).select("table");
-
-					int length = 0;
 					try
 					{
 						length = Integer.valueOf(specificTimeData.get(i).attr("rowspan"))/4;
 					} catch (NumberFormatException f)
 					{
 					}
-					String[] classGroups = classDataTables.get(0).select("tbody > tr > td").text().split(",");
-					String module = classDataTables.get(1).select("tbody > tr > td").text();
-					List<String> weeks = new LinkedList<String>(Arrays.asList(classDataTables.get(2).select("tbody > tr > td").text().split(",")));
+					classGroups = classDataTables.get(0).select("tbody > tr > td").text().split(",");
+					module = classDataTables.get(1).select("tbody > tr > td").text();
+					weeks = new LinkedList<String>(Arrays.asList(classDataTables.get(2).select("tbody > tr > td").text().split(",")));
 
 					String weekFormat = "MMMd";
 
 					for(int x = 0; x < weeks.size(); x++)
 					{
 						weeks.set(x, weeks.get(x).replaceAll("wk", "").replaceAll(" ", ""));
-						
+
 						SimpleDateFormat df = new SimpleDateFormat(weekFormat);
 						try {
 							String[] possibleWeeks = weeks.get(x).split("-");
+
 							if(possibleWeeks.length == 2)
 							{
 								Date date1 = df.parse(possibleWeeks[0]);
 								Date date2 = df.parse(possibleWeeks[1]);
 								Calendar cal = Calendar.getInstance();
-								
+
 								cal.setTime(date1);
 								int week1 = cal.get(Calendar.WEEK_OF_YEAR);	
 								cal.setTime(date2);
 								int week2 = cal.get(Calendar.WEEK_OF_YEAR);
-								
+
 								weeks.remove(x);
 								while(week1 <= week2)
 								{
@@ -232,10 +245,9 @@ public class Downloader {
 							e.printStackTrace();
 						}
 					}
-					classOn = new Class(time, day, Arrays.asList(classGroups), module, weeks, length);
 				}
 
-				//System.out.println(time);
+				classOn = new Class(time, day, (classGroups == null) ? null :Arrays.asList(classGroups), module, weeks, length);
 				classes.add(classOn);
 			}
 		}
@@ -244,9 +256,6 @@ public class Downloader {
 	}
 
 	private static Document downloadPage(String link) {
-
-
-		
 
 		Document doc = null;
 		try {
@@ -289,24 +298,31 @@ public class Downloader {
 		} catch (SQLException e) {
 			e.printStackTrace();
 		}
-		
+
 		Elements options = roomsPage.select("select[size=\"6\"] > option");
-	
+		Long current = System.currentTimeMillis();
+		String finalInsert = "INSERT INTO " + roomTable + " (room_number) VALUES ";
 		for(Element option : options)
 		{
 			if(!option.text().contains("#"))
 			{
-				try {
-					
-					DBConnection.getStatement().executeUpdate("INSERT INTO " + roomTable + " (room_number) VALUES (" +
-							"'" + option.text() + "')");
-					
-				} catch (SQLException e) {
-					e.printStackTrace();
-				}
+
+				finalInsert += "(" +
+						"'" + option.text() + "'),";
+
 			}
-				
 		}
-		
+		char[] chars = finalInsert.toCharArray();
+
+		chars[finalInsert.length() - 1] = Character.MIN_VALUE;
+
+		finalInsert = new String(chars);
+		try {
+			DBConnection.getStatement().executeUpdate(finalInsert);
+
+		} catch (SQLException e) {
+			e.printStackTrace();
+		}
+		System.out.println("Finished making room table." + ((System.currentTimeMillis() - current)/1000) + " seconds");
 	}
 }
