@@ -3,9 +3,11 @@ import java.sql.Connection;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
+import java.text.SimpleDateFormat;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Calendar;
+import java.util.Date;
 import java.util.List;
 import java.util.Scanner;
 
@@ -19,7 +21,7 @@ public class Main { //extends Application{
 		DBConnection.createConnection();
 		//launch(args);
 
-		Downloader.redownloadData();
+		//Downloader.redownloadData();
 
 		LocalDateTime now = LocalDateTime.now();
 
@@ -91,10 +93,57 @@ public class Main { //extends Application{
 				if(rooms.contains(rn))
 					rooms.remove(rn);
 			}
-			
+
+			String oldTime = time;
+
+			SimpleDateFormat sdf = new SimpleDateFormat("HH:mm");
+			Date date = new Date();
+			date = sdf.parse(time);
+
+			//System.out.println(date);
+			Calendar cal = Calendar.getInstance();
+			cal.setTime(date);
+			cal.add(Calendar.HOUR_OF_DAY, 1);
+
+			date = cal.getTime();
+
+
+			time = sdf.format(date);
+
 			for(String room : rooms)
 			{
-				System.out.println(room + " is available on " + day + " at " + time);
+
+
+				while(true)
+				{
+					sql = "SELECT * FROM class WHERE day='" + day + "' AND time='" + time + "' AND week_number='" + week + "' AND room_number='" + room + "' COLLATE NOCASE";
+					rs.close();
+					rs = DBConnection.getStatement().executeQuery(sql);
+
+					if(rs.next())
+					{
+						break;
+					}
+					else
+					{
+						date = sdf.parse(time);
+						cal = Calendar.getInstance();
+						cal.setTime(date);
+						cal.add(Calendar.HOUR_OF_DAY, 1);
+
+						date = cal.getTime();
+
+						time = sdf.format(date);
+						
+						if(time.equals("22:00"))
+						{
+							break;
+						}
+					}
+				}
+				System.out.println(room + " is available on " + day + " at " + oldTime + ((time.equals("22:00")) ? " for the rest of the day" : " till " + time));
+				time = oldTime;
+				date = new Date();
 			}
 
 		} catch(Exception e)
