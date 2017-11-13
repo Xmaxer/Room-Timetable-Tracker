@@ -23,7 +23,7 @@ public class Room {
 	}
 	private void parseRoomHeaderData() {
 
-		Matcher roomFinder = Pattern.compile("Room: ([^(]*)([^)]*)").matcher(roomHeaderData);
+		Matcher roomFinder = Pattern.compile("Room: ([^(]*) ([^)]*)").matcher(roomHeaderData);
 
 		if(roomFinder.find() && roomFinder.groupCount() == 2)
 		{
