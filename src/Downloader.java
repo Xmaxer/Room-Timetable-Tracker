@@ -51,6 +51,7 @@ public class Downloader {
 					");");
 
 			String finalInsert = "INSERT INTO " + classTable + " (time, day, module, week_number, room_number, class_group, length) values ";
+			
 			for(int roomIndex = 0; roomIndex < rooms.size(); roomIndex++)
 			{
 
@@ -113,10 +114,11 @@ public class Downloader {
 
 	private static List<Room> getAllRoomsData() {
 
+		Long current = System.currentTimeMillis();
 
 		List<Room> rooms = new ArrayList<Room>();
 
-		Document doc = downloadPage("Testing.html");
+		Document doc = downloadPage("Testing2.html");
 
 		if(doc != null)
 		{
@@ -130,7 +132,6 @@ public class Downloader {
 				String room = tableInfo.get(j/57).text();
 
 				Room currentRoom = new Room(room);
-
 				List<Class> classes = getAllClassesForRoom(j, tables);
 
 				currentRoom.setClasses(classes);
@@ -138,6 +139,7 @@ public class Downloader {
 			}
 		}
 
+		System.out.println("Finished parsing all data. " + (System.currentTimeMillis() - current) + " ms");
 		return rooms;
 	}
 
@@ -157,7 +159,7 @@ public class Downloader {
 	private static List<Class> getAllClassesForAllTimes(int j, Elements tables, int trip) {
 
 		List<String> days = configureValidDaysFromTable();
-
+;
 		List<Class> classes = new ArrayList<Class>();
 
 		Elements specificTimeData = tables.get(trip).select("td");
@@ -178,6 +180,10 @@ public class Downloader {
 
 		for(int i = 0; i < specificTimeData.size(); i++)
 		{
+			if(i >= 7)
+			{
+				continue;
+			}
 			if(i == 0)
 			{
 				time = specificTimeData.get(i).text();
@@ -323,6 +329,6 @@ public class Downloader {
 		} catch (SQLException e) {
 			e.printStackTrace();
 		}
-		System.out.println("Finished making room table." + ((System.currentTimeMillis() - current)/1000) + " seconds");
+		System.out.println("Finished making room table. " + (System.currentTimeMillis() - current) + " ms");
 	}
 }

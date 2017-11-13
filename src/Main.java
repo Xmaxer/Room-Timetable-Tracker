@@ -30,8 +30,8 @@ public class Main { //extends Application{
 		System.out.print("Input time: ");
 		String time = input.next();*/
 
-		String day = "15";
-		String time = "16:00";
+		String day = "14";
+		String time = "13:00";
 		Calendar cal = Calendar.getInstance();
 		if(cal.get(Calendar.DAY_OF_MONTH) <= Integer.valueOf(day))
 		{
@@ -76,28 +76,27 @@ public class Main { //extends Application{
 		try {
 
 			List<String> rooms = new ArrayList<String>();
-
-			String roomQuery = "Select room_number FROM room";
+			String roomQuery = "Select room_number FROM class GROUP BY room_number";
 
 			ResultSet roomResult = DBConnection.getStatement().executeQuery(roomQuery);
 
 			while(roomResult.next())
 				rooms.add(roomResult.getString("room_number"));
 
-			
 			String sql = "SELECT * FROM class WHERE day='" + day + "' AND time='" + time + "' AND week_number='" + week + "'COLLATE NOCASE";
 			ResultSet rs = DBConnection.getStatement().executeQuery(sql);
 
 			while(rs.next()) {
-				System.out.println("-----------------------");
-				System.out.println(rs.getString("time") +  "\t" + 
-						rs.getString("day") + "\t" +
-						rs.getString("module") + "\t" +
-						rs.getInt("week_number") + "\t" + 
-						rs.getString("room_number") + "\t" + 
-						rs.getString("class_group") + "\t" +
-						rs.getInt("length"));
+				String rn = rs.getString("room_number");
+				if(rooms.contains(rn))
+					rooms.remove(rn);
 			}
+			
+			for(String room : rooms)
+			{
+				System.out.println(room + " is available on " + day + " at " + time);
+			}
+
 		} catch(Exception e)
 		{
 			e.printStackTrace();
